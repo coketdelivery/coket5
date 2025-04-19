@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>걸코TV,아마란스 주니TV와 함께하는 오목게임</title>
+  <!-- 확대/축소 허용 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    /* 기본 스타일 */
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      font-size: 16px;
+      background-color: #f0f0f0;
+      text-align: center;
+      -webkit-tap-highlight-color: transparent;
+    }
+    header {
+      padding: 10px;
+      background-color: #222;
+      color: #fff;
+    }
+    #selection-screen, #game-screen {
+      padding: 20px;
+    }
+    .btn {
+      margin: 10px;
+      padding: 15px 25px;
+      font-size: 18px;
+      border: none;
+      border-radius: 5px;
+      background-color: #0077cc;
+      color: white;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    .btn:hover {
+      background-color: #005fa3;
+    }
+    /* 모바일 버튼 가독성 및 터치 영역 강화 */
+    button {
+      font-size: 1.2rem;
+      padding: 12px 20px;
+      margin: 5px;
+      min-width: 120px;
+      border-radius: 8px;
+      border: none;
+      background-color: #556B2F;
+      color: white;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    button:hover {
+      background-color: #6B8E23;
+    }
+    /* 보드 컨테이너: 확대 후 드래그(스크롤) 가능 */
+    #board-container {
+      width: 100%;
+      height: 90vmin;
+      max-width: 640px;
+      max-height: 640px;
+      margin: 20px auto;
+      overflow: auto;
+      touch-action: pan-x pan-y;
+      border: 2px solid #333;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+    }
+    /* 반응형 바둑판 (#board) - 고정 크기로 지정하여 확대 시 전체가 확대됨 */
+    #board {
+      position: relative;
+      width: 640px;
+      height: 640px;
+      background-color: #DEB887; /* 목재 느낌 */
+    }
+    /* 격자선 */
+    .grid-line {
+      position: absolute;
+      background-color: black;
+    }
+    /* 교차점(인터섹션): 터치 시 돌을 놓는 영역 */
+    .intersection {
+      position: absolute;
+      width: 45px;  /* 터치하기 쉽게 약간 확대 */
+      height: 45px;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    /* 돌 이미지 스타일 - 크기를 80%로 조정 */
+    .intersection img {
+      width: 80%;
+      height: 80%;
+      border: 2px solid #333;
+      box-sizing: border-box;
+      border-radius: 50%;
+      display: block;
+      margin: auto;
+    }
+    /* 공격 메시지 오버레이 */
+    #message {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: rgba(0, 0, 0, 0.7);
+      color: #fff;
+      padding: 20px 30px;
+      border-radius: 8px;
+      font-size: 24px;
+      display: none;
+      z-index: 100;
+    }
+    footer {
+      margin-top: 40px;
+      font-size: 12px;
+      color: #555;
+    }
+    /* 미디어 쿼리: 화면이 매우 작은 경우 글꼴 및 버튼 크기 조정 */
+    @media (max-width: 320px) {
+      body {
+        font-size: 14px;
+      }
+      .btn, button {
+        font-size: 1rem;
+        padding: 10px 15px;
+      }
+      #message {
+        font-size: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>걸코TV, 아마란스주니TV 코켓배송과  함께하는 오목게임</h1>
+  </header>
+
+  <!-- 돌 선택 화면 -->
+  <div id="selection-screen">
+    <h2>돌 선택</h2>
+    <button class="btn" onclick="startGame('white')">주니TV 선택</button>
+    <button class="btn" onclick="startGame('black')">걸코TV 선택</button>
+  </div>
+
+  <!-- 게임 화면 (초기에는 숨김) -->
+  <div id="game-screen" style="display: none;">
+    <!-- 보드 컨테이너로 감싸서 확대 후 드래그 가능 -->
+    <div id="board-container">
+      <div id="board"></div>
+    </div>
+  </div>
+
+  <!-- 공격 메시지 표시 -->
+  <div id="message"></div>
+
+  <!-- 저작권 안내 -->
+  <footer>
+   "유튜브 걸코_Gulko" 저작권 콘텐츠입니다  <br>
+       <a href="https://www.youtube.com/@Gulko" target="_blank">https://www.youtube.com/@Gulko</a><br>
+	   <br>
+   "유투브 아마란스 주니TV"  저작권 콘텐츠입니다. <br>
+       <a href="https://www.youtube.com/channel/UCNMlUmBmVrU-qNirwxCw6TA" target="_blank">https://www.youtube.com/channel/UCNMlUmBmVrU-qNirwxCw6TA</a><br>
+    © 2025 코켓게임즈. All rights reserved.
+  </footer>
+
+  <!-- 배경음악 및 플레이어 이동 효과음용 global audio 태그 -->
+  <audio id="bgm" src="bgm.mp3" loop></audio>
+  <!-- 플레이어 효과음은 겹치지 않도록 전역 오디오 엘리먼트 사용 -->
+  <audio id="player-move-sound"></audio>
+
+  <script>
+    /* 기본 보드 설정 */
+    const BOARD_SIZE = 640;  // 보드의 실제 픽셀 크기와 일치 (#board의 width, height)
+    const MARGIN = 40;       // 바둑판 선 시작 여백 (px)
+    const GRID_COUNT = 15;   // 15x15 오목판
+    const SPACING = (BOARD_SIZE - 2 * MARGIN) / (GRID_COUNT - 1);  // 교차점 간 간격
+
+    // AI 검색 깊이 (높을수록 강력하지만 속도 저하)
+    const MAX_DEPTH = 3;
+
+    // 게임 상태 전역 변수
+    window.gameState = {};
+
+    // 오목 게임 시작 (플레이어가 선택한 돌: "white" 또는 "black")
+    function startGame(playerStone) {
+      document.getElementById('selection-screen').style.display = 'none';
+      document.getElementById('game-screen').style.display = 'block';
+      // 배경음악 시작 및 볼륨 조절 (볼륨 0.1로 낮춤)
+      const bgm = document.getElementById('bgm');
+      bgm.volume = 0.1;
+      bgm.play();
+
+      const boardDiv = document.getElementById('board');
+      boardDiv.innerHTML = '';  // 기존 내용 초기화
+
+      // 15×15 배열 생성 (빈 상태)
+      let board = [];
+      for (let i = 0; i < GRID_COUNT; i++) {
+        board[i] = [];
+        for (let j = 0; j < GRID_COUNT; j++) {
+          board[i][j] = '';
+        }
+      }
+
+      // --- 격자 선 그리기 ---  
+      // 수직 선
+      for (let col = 0; col < GRID_COUNT; col++) {
+        const line = document.createElement('div');
+        line.className = 'grid-line';
+        line.style.left = (MARGIN + col * SPACING) + 'px';
+        line.style.top = MARGIN + 'px';
+        line.style.width = '1px';
+        line.style.height = (BOARD_SIZE - 2 * MARGIN) + 'px';
+        boardDiv.appendChild(line);
+      }
+      // 수평 선
+      for (let row = 0; row < GRID_COUNT; row++) {
+        const line = document.createElement('div');
+        line.className = 'grid-line';
+        line.style.top = (MARGIN + row * SPACING) + 'px';
+        line.style.left = MARGIN + 'px';
+        line.style.height = '1px';
+        line.style.width = (BOARD_SIZE - 2 * MARGIN) + 'px';
+        boardDiv.appendChild(line);
+      }
+
+      // --- 교차점(인터섹션) 생성 ---  
+      for (let row = 0; row < GRID_COUNT; row++) {
+        for (let col = 0; col < GRID_COUNT; col++) {
+          const intersection = document.createElement('div');
+          intersection.className = 'intersection';
+          intersection.style.left = (MARGIN + col * SPACING) + 'px';
+          intersection.style.top = (MARGIN + row * SPACING) + 'px';
+          // 돌이 없는 경우에만 클릭 허용
+          intersection.addEventListener('click', () => handlePlayerMove(row, col));
+          boardDiv.appendChild(intersection);
+        }
+      }
+
+      // 게임 상태 초기화
+      window.gameState = {
+        board: board,
+        playerStone: playerStone,
+        currentTurn: 'player',
+        rows: GRID_COUNT,
+        cols: GRID_COUNT
+      };
+    }
+
+    // 플레이어의 돌 놓기 함수 (내 차례)
+    function handlePlayerMove(r, c) {
+      const state = window.gameState;
+      if (state.currentTurn !== 'player' || state.board[r][c] !== '') return;
+
+      const intersection = getIntersectionElement(r, c);
+      const img = document.createElement('img');
+      if (state.playerStone === 'white') {
+        img.src = 'white_stone.png';
+        showMessage("샤바라공격");
+        playPlayerMoveSound('white_move.mp3');
+        state.board[r][c] = 'white';
+      } else {
+        img.src = 'black_stone.png';
+        showMessage("마쬬공격");
+        playPlayerMoveSound('black_move.mp3');
+        state.board[r][c] = 'black';
+      }
+      intersection.appendChild(img);
+
+      // 승리 조건 검사
+      if (checkWin(r, c, state.board[r][c])) {
+        setTimeout(() => {
+          alert("플레이어 (" + state.board[r][c] + ") 승리!");
+          location.reload();
+        }, 300);
+        return;
+      }
+
+      // 턴 전환: AI 차례
+      state.currentTurn = 'ai';
+      setTimeout(aiMove, 100);
+    }
+
+    // 주어진 좌표에 해당하는 교차점(인터섹션) 요소 반환
+    function getIntersectionElement(r, c) {
+      const intersections = document.querySelectorAll('.intersection');
+      const index = r * window.gameState.cols + c;
+      return intersections[index];
+    }
+
+    /* ===== AI 알고리즘: 미니맥스 + 알파-베타 가지치기 ===== */
+    function aiMove() {
+      const state = window.gameState;
+      const aiStone = (state.playerStone === 'white') ? 'black' : 'white';
+      const humanStone = state.playerStone;
+      let best = minimax(state.board, MAX_DEPTH, -Infinity, Infinity, true, aiStone, humanStone);
+      let move = best.move;
+      if (!move) {
+        endGame();
+        return;
+      }
+      state.board[move.r][move.c] = aiStone;
+      const intersection = getIntersectionElement(move.r, move.c);
+      const img = document.createElement('img');
+      if (aiStone === 'white') {
+        img.src = 'white_stone.png';
+        showMessage("샤바라공격");
+        playAIMoveSound('white_move.mp3');
+      } else {
+        img.src = 'black_stone.png';
+        showMessage("마쬬공격");
+        playAIMoveSound('black_move.mp3');
+      }
+      intersection.appendChild(img);
+      
+      if (checkWin(move.r, move.c, aiStone)) {
+        setTimeout(() => {
+          alert("AI (" + aiStone + ") 승리!");
+          location.reload();
+        }, 300);
+        return;
+      }
+      
+      state.currentTurn = 'player';
+    }
+
+    function minimax(board, depth, alpha, beta, maximizing, aiStone, humanStone) {
+      if (depth === 0) {
+        return { score: evaluate(board, aiStone, humanStone), move: null };
+      }
+      let terminalEval = checkTerminal(board, aiStone, humanStone);
+      if (terminalEval !== null) {
+        return { score: terminalEval, move: null };
+      }
+      
+      let candidateMoves = getCandidateMoves(board);
+      if (candidateMoves.length === 0) {
+        return { score: evaluate(board, aiStone, humanStone), move: null };
+      }
+      
+      let bestMove = null;
+      if (maximizing) {
+        let maxEval = -Infinity;
+        for (let move of candidateMoves) {
+          board[move.r][move.c] = aiStone;
+          let evalObj = minimax(board, depth - 1, alpha, beta, false, aiStone, humanStone);
+          board[move.r][move.c] = '';
+          if (evalObj.score > maxEval) {
+            maxEval = evalObj.score;
+            bestMove = move;
+          }
+          alpha = Math.max(alpha, evalObj.score);
+          if (beta <= alpha) break;
+        }
+        return { score: maxEval, move: bestMove };
+      } else {
+        let minEval = Infinity;
+        for (let move of candidateMoves) {
+          board[move.r][move.c] = humanStone;
+          let evalObj = minimax(board, depth - 1, alpha, beta, true, aiStone, humanStone);
+          board[move.r][move.c] = '';
+          if (evalObj.score < minEval) {
+            minEval = evalObj.score;
+            bestMove = move;
+          }
+          beta = Math.min(beta, evalObj.score);
+          if (beta <= alpha) break;
+        }
+        return { score: minEval, move: bestMove };
+      }
+    }
+
+    // 터미널 상태 검사: 이미 5목이면 큰 점수 반환
+    function checkTerminal(bd, aiStone, humanStone) {
+      for (let i = 0; i < GRID_COUNT; i++) {
+        for (let j = 0; j < GRID_COUNT; j++) {
+          if (bd[i][j] !== '') {
+            if (checkWinBoard(bd, i, j, bd[i][j])) {
+              return bd[i][j] === aiStone ? 1000000 : -1000000;
+            }
+          }
+        }
+      }
+      return null;
+    }
+
+    function checkWinBoard(bd, r, c, stone) {
+      const directions = [
+        { dr: 0, dc: 1 },
+        { dr: 1, dc: 0 },
+        { dr: 1, dc: 1 },
+        { dr: -1, dc: 1 }
+      ];
+      for (let d = 0; d < directions.length; d++) {
+        let count = 1;
+        const { dr, dc } = directions[d];
+        count += countStonesBoard(bd, r, c, dr, dc, stone);
+        count += countStonesBoard(bd, r, c, -dr, -dc, stone);
+        if (count >= 5) return true;
+      }
+      return false;
+    }
+    function countStonesBoard(bd, r, c, dr, dc, stone) {
+      let count = 0;
+      let i = r + dr, j = c + dc;
+      while (i >= 0 && i < GRID_COUNT && j >= 0 && j < GRID_COUNT && bd[i][j] === stone) {
+        count++;
+        i += dr;
+        j += dc;
+      }
+      return count;
+    }
+
+    // 평가 함수: 각 돌의 위치에서 연속 돌 개수와 오픈 여부 평가
+    function evaluate(board, aiStone, humanStone) {
+      let score = 0;
+      for (let i = 0; i < GRID_COUNT; i++) {
+        for (let j = 0; j < GRID_COUNT; j++) {
+          if (board[i][j] === aiStone) {
+            score += evaluatePosition(board, i, j, aiStone);
+          } else if (board[i][j] === humanStone) {
+            score -= evaluatePosition(board, i, j, humanStone);
+          }
+        }
+      }
+      return score;
+    }
+    function evaluatePosition(board, r, c, stone) {
+      const directions = [
+        { dr: 0, dc: 1 },
+        { dr: 1, dc: 0 },
+        { dr: 1, dc: 1 },
+        { dr: -1, dc: 1 }
+      ];
+      let posScore = 0;
+      for (let d = 0; d < directions.length; d++) {
+        let lineCount = 1;
+        let openEnds = 0;
+        let result1 = countInDirection(board, r, c, directions[d].dr, directions[d].dc, stone);
+        lineCount += result1.count;
+        if (result1.open) openEnds++;
+        let result2 = countInDirection(board, r, c, -directions[d].dr, -directions[d].dc, stone);
+        lineCount += result2.count;
+        if (result2.open) openEnds++;
+        posScore += getLineValue(lineCount, openEnds);
+      }
+      return posScore;
+    }
+    function countInDirection(board, r, c, dr, dc, stone) {
+      let count = 0;
+      let i = r + dr, j = c + dc;
+      while (i >= 0 && i < GRID_COUNT && j >= 0 && j < GRID_COUNT && board[i][j] === stone) {
+        count++;
+        i += dr;
+        j += dc;
+      }
+      let open = false;
+      if (i >= 0 && i < GRID_COUNT && j >= 0 && j < GRID_COUNT && board[i][j] === '') open = true;
+      return { count: count, open: open };
+    }
+    function getLineValue(count, openEnds) {
+      if (count >= 5) return 100000;
+      if (count === 4) {
+        if (openEnds === 2) return 10000;
+        else if (openEnds === 1) return 1000;
+      }
+      if (count === 3) {
+        if (openEnds === 2) return 1000;
+        else if (openEnds === 1) return 100;
+      }
+      if (count === 2) {
+        if (openEnds === 2) return 100;
+        else if (openEnds === 1) return 10;
+      }
+      if (count === 1) {
+        if (openEnds === 2) return 10;
+        else if (openEnds === 1) return 1;
+      }
+      return 0;
+    }
+
+    // 후보 움직임 생성
+    function getCandidateMoves(board) {
+      let moves = [];
+      for (let i = 0; i < GRID_COUNT; i++) {
+        for (let j = 0; j < GRID_COUNT; j++) {
+          if (board[i][j] !== '') continue;
+          let adjacent = false;
+          for (let di = -1; di <= 1; di++) {
+            for (let dj = -1; dj <= 1; dj++) {
+              let ni = i + di, nj = j + dj;
+              if (ni >= 0 && ni < GRID_COUNT && nj >= 0 && nj < GRID_COUNT && board[ni][nj] !== '') {
+                adjacent = true;
+              }
+            }
+          }
+          if (adjacent) moves.push({ r: i, c: j });
+        }
+      }
+      if (moves.length === 0) {
+        moves.push({ r: Math.floor(GRID_COUNT / 2), c: Math.floor(GRID_COUNT / 2) });
+      }
+      return moves;
+    }
+
+    // 승리 체크 함수 (플레이어 및 AI 공용)
+    function checkWin(r, c, stone) {
+      const directions = [
+        { dr: 0, dc: 1 },
+        { dr: 1, dc: 0 },
+        { dr: 1, dc: 1 },
+        { dr: -1, dc: 1 }
+      ];
+      for (let d = 0; d < directions.length; d++) {
+        let count = 1;
+        const { dr, dc } = directions[d];
+        count += countStones(r, c, dr, dc, stone);
+        count += countStones(r, c, -dr, -dc, stone);
+        if (count >= 5) return true;
+      }
+      return false;
+    }
+    function countStones(r, c, dr, dc, stone) {
+      const state = window.gameState;
+      let count = 0;
+      let i = r + dr, j = c + dc;
+      while (i >= 0 && i < state.rows && j >= 0 && j < state.cols && state.board[i][j] === stone) {
+        count++;
+        i += dr;
+        j += dc;
+      }
+      return count;
+    }
+
+    // 공격 메시지 표시 (1초간)
+    function showMessage(msg) {
+      const messageDiv = document.getElementById('message');
+      messageDiv.innerText = msg;
+      messageDiv.style.display = 'block';
+      setTimeout(() => { messageDiv.style.display = 'none'; }, 1000);
+    }
+
+    /* === 효과음 관련 함수 === */
+    function playPlayerMoveSound(soundFile) {
+      const playerSound = document.getElementById('player-move-sound');
+      playerSound.src = soundFile;
+      playerSound.volume = 1.0;
+      playerSound.currentTime = 0;
+      playerSound.play();
+    }
+    function playAIMoveSound(soundFile) {
+      let sound = new Audio(soundFile);
+      sound.volume = 1.0;
+      sound.play();
+    }
+
+    // 게임 종료 (모든 칸 채워진 경우)
+    function endGame() {
+      alert("게임 종료");
+      location.reload();
+    }
+
+    // --- 터치 이벤트를 이용한 보드 컨테이너 스크롤 제어 ---
+    (function() {
+      const boardContainer = document.getElementById('board-container');
+      let startY = 0;
+      let scrollStart = 0;
+
+      boardContainer.addEventListener('touchstart', function(e) {
+        startY = e.touches[0].pageY;
+        scrollStart = boardContainer.scrollTop;
+      }, false);
+
+      boardContainer.addEventListener('touchmove', function(e) {
+        const moveY = e.touches[0].pageY;
+        boardContainer.scrollTop = scrollStart - (moveY - startY);
+        // 필요 시 기본 스크롤을 막으려면 아래 주석을 제거합니다.
+        // e.preventDefault();
+      }, false);
+    })();
+  </script>
+</body>
+</html>
